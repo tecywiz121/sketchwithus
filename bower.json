@@ -1,0 +1,23 @@
+{
+  "name": "sketchwithus",
+  "version": "0.0.0",
+  "authors": [
+    "Sam Wilson <tecywiz121@hotmail.com>"
+  ],
+  "description": "Game where players try to identify what is being drawn",
+  "license": "AGPL",
+  "private": true,
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "bootstrap": "~3.2.0",
+    "html5shiv": "~3.7.2",
+    "respond": "~1.4.2",
+    "reconnectingWebsocket": "*"
+  }
+}

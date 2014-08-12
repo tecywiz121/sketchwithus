@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>SketchWith.Us</title>
+
+		<!-- Bootstrap -->
+		<link rel="stylesheet" href="/static/vendor/bootstrap/css/bootstrap.min.css">
+
+		<!-- Local Styles -->
+		<link rel="stylesheet" href="/static/css/main.css">
+
+		<!--[if lt IE 9]>
+		<script src="/static/vendor/html5shiv/html5shiv.min.js"></script>
+		<script src="/static/vendor/respond/respond.min.js"></script>
+		<![endif]-->
+	</head>
+	<body>
+		<div class="container">
+			<div class="row sketch-row">
+				<div class="col-md-8 canvas-column">
+					<div class="row canvas-top-row">
+						<div class="col-md-8 canvas-status">
+						</div><!-- /.canvas-status -->
+						<div class="col-md-4 canvas-timer">
+						</div><!-- /.canvas-timer -->
+					</div><!-- /.canvas-top-row -->
+					<div class="row canvas-mid-row">
+						<div class="canvas-image">
+							<canvas class="the-canvas" width="780" height="585">
+							</canvas><!-- /.the-canvas -->
+						</div><!-- /.canvas-image -->
+					</div><!-- /.canvas-mid-row -->
+					<div class="row canvas-bot-row">
+						<form class="form-inline">
+							<div class="form-group">
+								<label class="sr-only canvas-guess-label" for="canvas-guess-input">
+									Your Guess
+								</label><!-- /.canvas-guess-label -->
+								<input class="form-control" type="text" placeholder="Your Guess" id="canvas-guess-input">
+								<button type="submit" class="btn btn-primary">Guess</button>
+							</div><!-- /.form-group -->
+							<button class="btn btn-warning pull-right">Skip</button>
+						</form><!-- /.form-inline -->
+					</div><!-- /.canvas-bot-row -->
+				</div><!-- /.canvas-column -->
+				<div class="col-md-4 chat-column">
+					<!-- Tabs -->
+					<ul class="nav nav-tabs chat-tabs" role="tablist">
+						<li class="active"><a href="#chat" role="tab" data-toggle="tab">Chat</a></li>
+						<li><a href="#players" role="tab" data-toggle="tab">Players</a></li>
+					</ul><!-- /.chat-tabs -->
+
+					<!-- Content -->
+					<div class="tab-content chat-tabs-content">
+						<div class="tab-pane active" id="chat" class="chat">
+							Chat
+						</div><!-- /#chat -->
+						<div class="tab-pane" id="players" class="player-list">
+							Players
+						</div><!-- /#players -->
+					</div><!-- /.chat-tabs-content -->
+				</div><!-- /.chat-column -->
+			</div><!-- /.sketch-row -->
+		</div><!-- /.container -->
+
+		<!-- Dialogs -->
+		<div class="modal fade" id="login-modal" tabindex="-1" role="dialog"
+			aria-labelledby="login-modal-label" aria-hidden="true">
+			<div class="modal-dialog">
+				<div class="modal-content">
+					<div class="modal-header">
+						<h4 class="modal-title" id="login-modal-label">
+							Join Table
+						</h4><!-- /#login-modal-label -->
+					</div><!-- /.modal-header -->
+					<div class="modal-body">
+					</div><!-- /.modal-body -->
+					<div class="modal-footer">
+						<button type="button" class="btn btn-primary"
+							id="login-button">
+							Join Table!
+						</button><!-- /#login-button -->
+					</div><!-- /.modal-footer -->
+				</div><!-- /.modal-content -->
+			</div><!-- /.modal-dialog -->
+		</div><!-- /#login-modal -->
+
+		<!-- Scripts -->
+		<script src="/static/vendor/jquery/jquery.min.js"></script>
+		<script src="/static/vendor/bootstrap/js/bootstrap.min.js"></script>
+		<script src="/static/vendor/reconnecting-websocket/reconnecting-websocket.js"></script>
+		<script src="/static/js/main.js"></script>
+	</body>
+</html>

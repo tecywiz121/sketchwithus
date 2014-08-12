@@ -1,0 +1,30 @@
+.the-canvas {
+	width: 100%;
+}
+
+.sketch-row {
+	display: table;
+}
+
+.sketch-row > [class*="col-"] {
+	float: none;
+	display: table-cell;
+	vertical-align: top;
+}
+
+.chat-tabs-content {
+	border-left: 1px solid #ddd;
+	border-right: 1px solid #ddd;
+	border-bottom: 1px solid #ddd;
+	padding: 10px;
+
+	position: absolute;
+	left: 15px;
+	right: 15px;
+	top: 41px; /* estimated height of .chat-tabs */
+	bottom: 0;
+}
+
+.chat-tabs {
+	margin-bottom: 0;
+}

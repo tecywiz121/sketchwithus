@@ -1,1 +1,6 @@
 venv/
+bower_components/
+*.swp
+*.pyo
+*.pyc
+
