@@ -126,6 +126,10 @@
         this._send({verb: 'LEAVE'});
     };
 
+    SketchTable.prototype.pass = function pass() {
+        this._send({verb: 'PASS'});
+    };
+
     global.SketchTable = SketchTable;
 }(this));
 

@@ -172,6 +172,11 @@ class Player(object):
                 return
             self.table.leave(self)
             self.table = None
+        elif msg.verb == 'PASS':
+            if self.table is None:
+                logging.error('pass command with no table')
+                return
+            self.table.pass_turn(self)
 
 class Table(object):
     """A group of players"""
@@ -182,6 +187,7 @@ class Table(object):
         self.pubsub = manager.pubsub
         self.topic = 'table.' + name
         self.players_key = '.'.join(['table', self.name, 'players'])
+        self.turns_key = '.'.join(['table', self.name, 'turns'])
 
         kwargs = {self.topic: self._handle_message}
         self.pubsub.subscribe(**kwargs)
@@ -206,13 +212,27 @@ class Table(object):
         # Add new player to the player list
         redis.sadd(self.players_key, player.name)
 
-        # Send joined messages for all existing players
+        # Check if player in turn list
+        rank = redis.zrank(self.turns_key, player.name)
+
+        if rank is None:
+            # Add player to the turn list if he/she wasn't already there
+            redis.zadd(self.turns_key, player.name, time.time())
+
+        # Prepare joined messages for all existing players
         msgs = []
         for other in others:
+            if other == player.name:
+                continue
             msg = Message('JOINED')
             msg.name = other
             msgs.append(msg)
 
+        # Prepare passed message to set correct turn
+        msgs.append(Message('PASSED',
+            player_name=redis.zrange(self.turns_key, 0, 1)[0]))
+
+        # Send all the prepared messages
         gevent.joinall([gevent.spawn(player.send, x) for x in msgs])
 
     def disconnect(self, player):
@@ -231,6 +251,31 @@ class Table(object):
         assert(player.table == self)
         self._depart(player, False)
 
+    def pass_turn(self, player):
+        """
+        If the given player is the active player, pass the turn to the next in
+        line.
+        """
+        # Get the player's current rank
+        rank = redis.zrank(self.turns_key, player.name)
+
+        # Check if it is his/her turn
+        if rank == 0:
+            # Get the next player
+            next_player = redis.zrange(self.turns_key, 1, 2)
+
+            # Are we playing with ourself?
+            if next_player:
+                next_player = next_player[0]
+            else:
+                next_player = player.name
+
+            # Tell everyone who's turn it is
+            self.send(Message('PASSED', player_name=next_player))
+
+            # Move the old player to the end of the turn list
+            redis.zadd(self.turns_key, player.name, time.time())
+
     def send(self, msg):
         """
         Sends a message to all players connected to this table.
@@ -244,8 +289,12 @@ class Table(object):
         """
         self.players.remove(player)
 
-        # Remove player from the player list
+        # If it is this player's turn, pass it automatically
+        self.pass_turn(player)
+
+        # Remove player from the player and turn lists
         redis.srem(self.players_key, player.name)
+        redis.zrem(self.turns_key, player.name)
 
         msg = Message('DEPARTED')               # Let everyone know
         msg.player = player.name                # which player is leaving,
