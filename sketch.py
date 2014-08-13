@@ -20,34 +20,86 @@ import redis
 import gevent
 import time
 import json
+import urlparse
 from flask import Flask, render_template
 from flask_sockets import Sockets
 from werkzeug.datastructures import MultiDict
+from peewee import *
 
 REDIS_URL = os.environ['REDISCLOUD_URL']
 REDIS_CHAN = 'sketch'
 
+# Flask
 app = Flask(__name__)
 app.debug = 'DEBUG' in os.environ
 app.debug = True
 
+# Logging
 file_handler = logging.StreamHandler()
 app.logger.setLevel(logging.DEBUG)
 app.logger.addHandler(file_handler)
 
-app.logger.debug('Hello, World!')
 
+# Flask Sockets
 sockets = Sockets(app)
+
+# Redis
 redis = redis.from_url(REDIS_URL)
+
+# Peewee
+urlparse.uses_netloc.append('postgres')
+db_url = urlparse.urlparse(os.environ['DATABASE_URL'])
+db = PostgresqlDatabase(db_url.path[1:],
+                        user=db_url.username,
+                        password=db_url.password,
+                        host=db_url.hostname,
+                        port=db_url.port)
+
+db.connect()
+
+class BaseModel(Model):
+    """The base class for all models"""
+    class Meta:
+        database = db
+
+class Word(BaseModel):
+    text = CharField(unique=True)
+    plays = IntegerField(index=True)
+    wins = IntegerField()
+
+def get_next_word(used=None):
+    # Fetch a random word that hasn't been used much
+    subquery = Word.select(fn.Avg(Word.plays))
+    result = (Word.select()
+                .order_by(fn.Random())
+                .where(Word.plays <= subquery))
+    if used:
+        result = result.where((Word.text << used) == False)
+    result = result[0]
+
+    # Update its play count
+    query = Word.update(plays=Word.plays + 1).where(Word.id == result.id)
+    query.execute()
+
+    return result
+
+app.logger.debug('Hello, World!')
 
 class Message(object):
     """
     A message that was or will be sent over a WebSocket connection.
     """
     def __init__(self, verb, **kwargs):
-        self.verb = verb.upper()
-        for k, v in kwargs.items():
-            setattr(self, k, v)
+        if isinstance(verb, Message):
+            # Copy constructor - make a copy of the message.
+            for k in dir(verb):
+                if not k.startswith('_'):
+                    setattr(self, k, getattr(verb, k))
+        else:
+            # Regular constructor
+            self.verb = verb.upper()
+            for k, v in kwargs.items():
+                setattr(self, k, v)
 
     def _for_json(self):
         return dict((x, getattr(self, x)) for x in dir(self) if not x.startswith('_'))
@@ -188,9 +240,14 @@ class Table(object):
         self.topic = 'table.' + name
         self.players_key = '.'.join(['table', self.name, 'players'])
         self.turns_key = '.'.join(['table', self.name, 'turns'])
+        self.word_key = '.'.join(['table', self.name, 'word'])
 
+        # Subscribe to table updates
         kwargs = {self.topic: self._handle_message}
         self.pubsub.subscribe(**kwargs)
+
+        # Set the initial starting word
+        redis.setnx(self.word_key, get_next_word().text)
 
     def join(self, player):
         if player.table == self:
@@ -229,8 +286,11 @@ class Table(object):
             msgs.append(msg)
 
         # Prepare passed message to set correct turn
-        msgs.append(Message('PASSED',
-            player_name=redis.zrange(self.turns_key, 0, 1)[0]))
+        current = redis.zrange(self.turns_key, 0, 1)[0]
+        msg = Message('PASSED', player_name=current)
+        if player.name == current:
+            msg.word = redis.get(self.word_key)
+        msgs.append(msg)
 
         # Send all the prepared messages
         gevent.joinall([gevent.spawn(player.send, x) for x in msgs])
@@ -269,6 +329,9 @@ class Table(object):
                 next_player = next_player[0]
             else:
                 next_player = player.name
+
+            # Set the new word
+            word = redis.set(self.word_key, get_next_word().text)
 
             # Tell everyone who's turn it is
             self.send(Message('PASSED', player_name=next_player))
@@ -317,7 +380,13 @@ class Table(object):
 
         msg = json_loads(msg['data'])
         for p in self.players:
-            gevent.spawn(p.send, msg)
+            if msg.verb == 'PASSED' and msg.player_name == p.name:
+                # Add the word to the passed message for the correct player
+                special = Message(msg)
+                special.word = redis.get(self.word_key)
+                gevent.spawn(p.send, special)
+            else:
+                gevent.spawn(p.send, msg)
 
 
 class SketchBackend(object):
