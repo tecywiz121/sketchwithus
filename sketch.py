@@ -44,8 +44,10 @@ class Message(object):
     """
     A message that was or will be sent over a WebSocket connection.
     """
-    def __init__(self, verb):
+    def __init__(self, verb, **kwargs):
         self.verb = verb.upper()
+        for k, v in kwargs.items():
+            setattr(self, k, v)
 
     def _for_json(self):
         return dict((x, getattr(self, x)) for x in dir(self) if not x.startswith('_'))
