@@ -192,11 +192,13 @@
         this._btn_guess = this._guess_form.find('.canvas-guess');
         this._btn_skip = this._guess_form.find('.canvas-skip');
         this._btn_pass = this._draw_controls.find('.canvas-pass');
+        this._txt_guess = this._guess_form.find('.guess-input');
         this._myTurn = false;
 
         /* Set up skip/pass buttons */
         var that = this;
         this._btn_pass.click(function(evt) { return that._onpass(evt); });
+        this._guess_form.submit(function(evt) { return that._onguess(evt); });
         this._btn_guess.click(function(evt) { return that._onguess(evt); });
         this._btn_skip.click(function(evt) { return that._onskip(evt); });
 
@@ -222,7 +224,11 @@
     };
 
     SketchTable.prototype._onguess = function _onguess(evt) {
-        console.log(evt);
+        var word = this._txt_guess.val();
+        if (word.length > 0) {
+            this.guess(this._txt_guess.val());
+            this._txt_guess.val('');
+        }
         return false;
     };
 
@@ -302,6 +308,9 @@
                 this._drawing.draw(obj.points);
             }
             break;
+        case 'GUESSED':
+            this._guessed(obj.player_name, obj.word, obj.correct);
+            break;
         }
     };
 
@@ -334,8 +343,25 @@
         this._players.clear();
     };
 
+    SketchTable.prototype.guess = function guess(word) {
+        this._send({verb: 'GUESS', word: word});
+    };
+
     SketchTable.prototype.pass = function pass() {
         this._send({verb: 'PASS'});
+    };
+
+    SketchTable.prototype._guessed = function _guessed(player_name, word,
+        correct) {
+        var msg = player_name;
+
+        if (correct) {
+            msg += ' correctly';
+        }
+
+        msg += ' guessed \u201C' + word + '\u201D';
+
+        this._chat.control(msg);
     };
 
     SketchTable.prototype._skipped = function _skipped(player_name, word) {
@@ -433,4 +459,5 @@ $(function() {
         backdrop: 'static',
         keyboard: false});
 
+    window.temp = game;
 });

@@ -239,6 +239,11 @@ class Player(object):
                 logging.error('draw command with no table')
                 return
             self.table.draw(self, msg.points);
+        elif msg.verb == 'GUESS':
+            if self.table is None:
+                logging.error('guess command with no table')
+                return
+            self.table.guess(self, msg.word)
 
 class Table(object):
     """A group of players"""
@@ -259,6 +264,24 @@ class Table(object):
 
         # Set the initial starting word
         redis.setnx(self.word_key, get_next_word().text)
+
+    def guess(self, player, guess):
+        """
+        Guess a word.
+        """
+        artist_name = self._get_artist()
+        if player.name == artist_name:
+            app.logger.error('artist submitted a guess')
+            return
+
+        word = redis.get(self.word_key)
+        correct = word == guess
+
+        self.send(Message('GUESSED', player_name=player.name, word=guess,
+                            correct=correct))
+
+        if correct:
+            self._pass_turn(artist_name)
 
     def draw(self, player, points):
         """
