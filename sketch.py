@@ -229,6 +229,11 @@ class Player(object):
                 logging.error('pass command with no table')
                 return
             self.table.pass_turn(self)
+        elif msg.verb == 'SKIP':
+            if self.table is None:
+                logging.error('skip command with no table')
+                return
+            self.table.skip_turn(self)
 
 class Table(object):
     """A group of players"""
@@ -241,6 +246,7 @@ class Table(object):
         self.players_key = '.'.join(['table', self.name, 'players'])
         self.turns_key = '.'.join(['table', self.name, 'turns'])
         self.word_key = '.'.join(['table', self.name, 'word'])
+        self.skip_key = '.'.join(['table', self.name, 'skip'])
 
         # Subscribe to table updates
         kwargs = {self.topic: self._handle_message}
@@ -286,7 +292,7 @@ class Table(object):
             msgs.append(msg)
 
         # Prepare passed message to set correct turn
-        current = redis.zrange(self.turns_key, 0, 1)[0]
+        current = redis.zrange(self.turns_key, 0, 0)[0]
         msg = Message('PASSED', player_name=current)
         if player.name == current:
             msg.word = redis.get(self.word_key)
@@ -311,6 +317,29 @@ class Table(object):
         assert(player.table == self)
         self._depart(player, False)
 
+    def skip_turn(self, player):
+        """
+        Causes a player to vote to skip the current artist. A majority is
+        required.
+        """
+
+        # Make sure the artist isn't skipping
+        artist = redis.zrange(self.turns_key, 0, 0)[0]
+        if artist == player.name:
+            app.logger.error('artist voted to skip')
+            return
+
+        # Add the player to the list of voted players
+        redis.sadd(self.skip_key, player.name)
+
+        voted = redis.scard(self.skip_key)
+        total = redis.scard(self.players_key) - 1
+
+        self.send(Message('SKIPPED', player_name=player.name))
+
+        if voted * 2 > total:
+            self._pass_turn(artist)
+
     def pass_turn(self, player):
         """
         If the given player is the active player, pass the turn to the next in
@@ -321,23 +350,29 @@ class Table(object):
 
         # Check if it is his/her turn
         if rank == 0:
-            # Get the next player
-            next_player = redis.zrange(self.turns_key, 1, 2)
+            self._pass_turn(player.name)
 
-            # Are we playing with ourself?
-            if next_player:
-                next_player = next_player[0]
-            else:
-                next_player = player.name
+    def _pass_turn(self, player_name):
+        # Get the next player
+        next_player = redis.zrange(self.turns_key, 1, 1)
 
-            # Set the new word
-            word = redis.set(self.word_key, get_next_word().text)
+        # Are we playing with ourself?
+        if next_player:
+            next_player = next_player[0]
+        else:
+            next_player = player_name
 
-            # Tell everyone who's turn it is
-            self.send(Message('PASSED', player_name=next_player))
+        # Set the new word
+        word = redis.set(self.word_key, get_next_word().text)
 
-            # Move the old player to the end of the turn list
-            redis.zadd(self.turns_key, player.name, time.time())
+        # Clear the skip key
+        redis.delete(self.skip_key)
+
+        # Tell everyone who's turn it is
+        self.send(Message('PASSED', player_name=next_player))
+
+        # Move the old player to the end of the turn list
+        redis.zadd(self.turns_key, player_name, time.time())
 
     def send(self, msg):
         """

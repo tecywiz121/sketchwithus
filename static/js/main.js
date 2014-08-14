@@ -204,7 +204,7 @@
     };
 
     SketchTable.prototype._onskip = function _onskip(evt) {
-        console.log(evt);
+        this._send({verb: 'SKIP'});
         return false;
     };
 
@@ -271,6 +271,9 @@
         case 'PASSED':
             this._passed(obj.player_name, obj.word);
             break;
+        case 'SKIPPED':
+            this._skipped(obj.player_name);
+            break;
         }
     };
 
@@ -305,6 +308,10 @@
 
     SketchTable.prototype.pass = function pass() {
         this._send({verb: 'PASS'});
+    };
+
+    SketchTable.prototype._skipped = function _skipped(player_name, word) {
+        this._chat.control(player_name + ' voted to skip');
     };
 
     SketchTable.prototype._passed = function _passed(player_name, word) {
