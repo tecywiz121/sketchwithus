@@ -234,6 +234,11 @@ class Player(object):
                 logging.error('skip command with no table')
                 return
             self.table.skip_turn(self)
+        elif msg.verb == 'DRAW':
+            if self.table is None:
+                logging.error('draw command with no table')
+                return
+            self.table.draw(self, msg.points);
 
 class Table(object):
     """A group of players"""
@@ -254,6 +259,21 @@ class Table(object):
 
         # Set the initial starting word
         redis.setnx(self.word_key, get_next_word().text)
+
+    def draw(self, player, points):
+        """
+        Draws the specified points on the canvas.
+        """
+        artist_name = self._get_artist()
+
+        if player.name != artist_name:
+            app.logger.error('player drawing when not the artist')
+            return
+
+        self.send(Message('DRAWN', points=points))
+
+    def _get_artist(self):
+        return redis.zrange(self.turns_key, 0, 0)[0]
 
     def join(self, player):
         if player.table == self:
@@ -292,7 +312,7 @@ class Table(object):
             msgs.append(msg)
 
         # Prepare passed message to set correct turn
-        current = redis.zrange(self.turns_key, 0, 0)[0]
+        current = self._get_artist()
         msg = Message('PASSED', player_name=current)
         if player.name == current:
             msg.word = redis.get(self.word_key)
@@ -324,7 +344,7 @@ class Table(object):
         """
 
         # Make sure the artist isn't skipping
-        artist = redis.zrange(self.turns_key, 0, 0)[0]
+        artist = self._get_artist()
         if artist == player.name:
             app.logger.error('artist voted to skip')
             return

@@ -28,6 +28,8 @@
         var that = this;
         canvas.addEventListener('mouseup',
             function(evt) { return that._onmouseup(evt); });
+        canvas.addEventListener('mouseleave',
+            function(evt) { return that._onmouseleave(evt); });
         canvas.addEventListener('mousedown',
             function(evt) { return that._onmousedown(evt); });
         canvas.addEventListener('mousemove',
@@ -54,7 +56,7 @@
         var xRatio = attrW / realW,
             yRatio = attrH / realH;
 
-        return [mouseX * xRatio, mouseY * yRatio];
+        return [Math.floor(mouseX * xRatio), Math.floor(mouseY * yRatio)];
     };
 
     DrawingArea.prototype._onmousedown = function _onmousedown(evt) {
@@ -72,6 +74,13 @@
 
         if (this.onstroke) {
             this.onstroke(this._path);
+        }
+    };
+
+    DrawingArea.prototype._onmouseleave = function _onmouseleave(evt) {
+        if (this._enabled && evt.buttons === 1 && this.onstroke) {
+            this.onstroke(this._path);
+            this._path = [this._path[this._path.length - 1]];
         }
     };
 
@@ -100,6 +109,15 @@
     DrawingArea.prototype.clear = function clear() {
         this._ctx.clearRect(0, 0, this._canvas.width, this._canvas.height);
         this._path = [];
+    };
+
+    DrawingArea.prototype.draw = function draw(points) {
+        this._ctx.beginPath();
+        this._ctx.moveTo(points[0][0], points[0][1]);
+        for (var ii = 1; ii < points.length; ii++) {
+            this._ctx.lineTo(points[ii][0], points[ii][1]);
+        }
+        this._ctx.stroke();
     };
 
     var SketchTableLog = function SketchTableLog(target) {
@@ -174,6 +192,7 @@
         this._btn_guess = this._guess_form.find('.canvas-guess');
         this._btn_skip = this._guess_form.find('.canvas-skip');
         this._btn_pass = this._draw_controls.find('.canvas-pass');
+        this._myTurn = false;
 
         /* Set up skip/pass buttons */
         var that = this;
@@ -183,7 +202,7 @@
 
         /* Initialize the drawing area */
         this._drawing = new DrawingArea(this._root.find('.the-canvas').get(0));
-        this._drawing.onstroke = function(path) { console.log(path); };
+        this._drawing.onstroke = function(path) { that._onstroke(path); };
 
         /* Initialize the chat log */
         this._chat = new SketchTableLog(this._root.find('.chat-log'));
@@ -191,6 +210,10 @@
         /* Initialize the players list */
         this._players = new PlayerList(this._chat,
                                         this._root.find('.player-list'));
+    };
+
+    SketchTable.prototype._onstroke = function _onstroke(path) {
+        this._send({verb: 'DRAW', points: path});
     };
 
     SketchTable.prototype._onpass = function _onpass(evt) {
@@ -274,6 +297,11 @@
         case 'SKIPPED':
             this._skipped(obj.player_name);
             break;
+        case 'DRAWN':
+            if (!this._myTurn) {
+                this._drawing.draw(obj.points);
+            }
+            break;
         }
     };
 
@@ -333,12 +361,16 @@
 
             this._guess_form.hide();
             this._draw_controls.show();
+
+            this._myTurn = true;
         } else {
             // If we're not the active player, disable everything.
             this._drawing.stop();
 
             this._draw_controls.hide();
             this._guess_form.show();
+
+            this._myTurn = false;
         }
     };
 
