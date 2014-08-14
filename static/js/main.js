@@ -88,6 +88,7 @@
 
     var SketchTableLog = function SketchTableLog(target) {
         this._el = $(target);
+        this._scroll = this._el.parent('.tab-content');
     };
 
     SketchTableLog.prototype.chat = function chat(username, msg) {
@@ -106,6 +107,10 @@
 
     SketchTableLog.prototype._write = function _write(element) {
         this._el.append(element);
+
+        if (this._el.is('.active')) {
+            this._scroll.animate({ scrollTop: this._el.height() }, 'slow');
+        }
     };
 
     var PlayerList = function PlayerList(chatLog, target) {

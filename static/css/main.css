@@ -31,6 +31,9 @@
 	right: 15px;
 	top: 41px; /* estimated height of .chat-tabs */
 	bottom: 0;
+
+	overflow-y: auto;
+	overflow-x: hidden;
 }
 
 .chat-tabs {
