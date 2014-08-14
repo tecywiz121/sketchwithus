@@ -264,8 +264,10 @@
     SketchTable.prototype.join = function join(table) {
         this._table = table;
 
-        this._chat.control('Joining table ' + table);
-        this._send({verb: 'JOIN', table: table});
+        if (this._socket.readyState === WebSocket.OPEN) {
+            this._chat.control('Joining table ' + table);
+            this._send({verb: 'JOIN', table: table});
+        }
     };
 
     SketchTable.prototype.leave = function leave() {
@@ -309,7 +311,57 @@
 $(function() {
     'use strict';
 
-    var temp = new SketchTable('.sketch-row');
-    temp._drawing.start();
-    window.temp = temp;
+    var $modal = $('#login-modal'),
+        $btn = $('#login-button'),
+        $name = $('#login-form-name'),
+        $table = $('#login-form-table');
+
+    var game = new SketchTable('.sketch-row');
+
+    $btn.click(function(e) {
+        var name = $name.val(),
+            table = $table.val();
+
+        var good = true;
+
+        /* Check for valid inputs */
+        if (name.length > 0) {
+            $name.parent('.form-group').removeClass('has-error');
+        } else {
+            $name.parent('.form-group').addClass('has-error');
+            good = false;
+        }
+
+        if (table.length > 0) {
+            $table.parent('.form-group').removeClass('has-error');
+        } else {
+            $table.parent('.form-group').addClass('has-error');
+            good = false;
+        }
+
+        if (!good) {
+            return false;
+        }
+        $modal.modal('hide');
+
+        /* Get the WebSocket path */
+        var loc = window.location, new_uri;
+        if (loc.protocol === 'https') {
+            new_uri = 'wss';
+        } else {
+            new_uri = 'ws';
+        }
+
+        new_uri += '://' + loc.host + '/game';
+
+        /* Perform the login and join */
+        game.login(new_uri, name);
+        game.join(table);
+        return false;
+    });
+
+    $modal.modal({
+        backdrop: 'static',
+        keyboard: false});
+
 });
