@@ -12,6 +12,14 @@
 	vertical-align: top;
 }
 
+.draw-controls {
+	display: none;
+}
+
+.draw-controls > h2 {
+	display: inline-block;
+}
+
 .chat-tabs-content {
 	border-left: 1px solid #ddd;
 	border-right: 1px solid #ddd;

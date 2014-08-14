@@ -86,12 +86,105 @@
     DrawingArea.prototype.start = function start() { this._enabled = true; };
     DrawingArea.prototype.stop = function stop() { this._enabled = false; };
 
+    var SketchTableLog = function SketchTableLog(target) {
+        this._el = $(target);
+    };
+
+    SketchTableLog.prototype.chat = function chat(username, msg) {
+        var $user = $('<span class="chat-user" />').text(username),
+            $msg = $('<span class="chat-message" />').text(msg),
+            $div = $('<div class="chat-entry message" />').append($user, $msg);
+
+        this._write($div);
+    };
+
+    SketchTableLog.prototype.control = function control(msg) {
+        var $msg = $('<span class="chat-message" />').text(msg),
+            $div = $('<div class="chat-entry control" />').append($msg);
+        this._write($div);
+    };
+
+    SketchTableLog.prototype._write = function _write(element) {
+        this._el.append(element);
+    };
+
+    var PlayerList = function PlayerList(chatLog, target) {
+        this._el = $(target);
+        this._chat = chatLog;
+        this._players = {};
+    };
+
+    PlayerList.prototype.joined = function joined(player) {
+        this._chat.control(player + ' has joined the table');
+
+        if (!(player in this._players)) {
+            var $li = $('<li class="player">').text(player);
+
+            this._players[player] = $li;
+            this._el.append($li);
+        }
+    };
+
+    PlayerList.prototype.departed = function departed(player, disconnected) {
+        if (disconnected) {
+            this._chat.control(player + ' has disconnected');
+        } else {
+            this._chat.control(player + ' has left the table');
+        }
+
+        var $li = this._players[player];
+        delete this._players[player];
+        $li.remove();
+    };
+
+    PlayerList.prototype.clear = function clear() {
+        var x = this._players;
+        this._players = {};
+        for (var key in x) {
+            x[key].remove();
+        }
+    };
+
     var SketchTable = function SketchTable(target) {
         this._root = $(target);
+        this._guess_form = this._root.find('.guess-form');
+        this._draw_controls = this._root.find('.draw-controls');
+        this._draw_word = this._draw_controls.find('.canvas-word');
+        this._btn_guess = this._guess_form.find('.canvas-guess');
+        this._btn_skip = this._guess_form.find('.canvas-skip');
+        this._btn_pass = this._draw_controls.find('.canvas-pass');
+
+        /* Set up skip/pass buttons */
+        var that = this;
+        this._btn_pass.click(function(evt) { return that._onpass(evt); });
+        this._btn_guess.click(function(evt) { return that._onguess(evt); });
+        this._btn_skip.click(function(evt) { return that._onskip(evt); });
 
         /* Initialize the drawing area */
         this._drawing = new DrawingArea(this._root.find('.the-canvas').get(0));
         this._drawing.onstroke = function(path) { console.log(path); };
+
+        /* Initialize the chat log */
+        this._chat = new SketchTableLog(this._root.find('.chat-log'));
+
+        /* Initialize the players list */
+        this._players = new PlayerList(this._chat,
+                                        this._root.find('.player-list'));
+    };
+
+    SketchTable.prototype._onpass = function _onpass(evt) {
+        this.pass();
+        return false;
+    };
+
+    SketchTable.prototype._onguess = function _onguess(evt) {
+        console.log(evt);
+        return false;
+    };
+
+    SketchTable.prototype._onskip = function _onskip(evt) {
+        console.log(evt);
+        return false;
     };
 
     SketchTable.prototype._log = function _log() {
@@ -105,9 +198,11 @@
 
     SketchTable.prototype._onopen = function _onopen(evt) {
         this._log('Connecting');
+        this._players.clear();
 
         /* Restablish State */
         if (typeof(this._player_name) !== 'undefined') {
+            this._chat.control('Registering as ' + this._player_name);
             this._send({verb: 'CONNECT', player_name: this._player_name});
         }
 
@@ -117,7 +212,40 @@
     };
 
     SketchTable.prototype._onmessage = function _onmessage(evt) {
-        this._log(evt);
+        var that = this;
+        if (typeof(evt.data) === 'string') {
+            this._processMessage(evt.data);
+        } else {
+            var f = new FileReader();
+            f.addEventListener('loadend',
+                function() { that._processMessage(f.result); });
+            f.readAsText(evt.data);
+        }
+    };
+
+    SketchTable.prototype._processMessage = function _processMessage(text) {
+        try {
+            var obj = JSON.parse(text);
+            this._log(obj);
+        } catch (e) {
+            this._log('Error while parsing JSON:', e);
+            this._log(text);
+            return;
+        }
+
+        switch (obj.verb.toUpperCase()) {
+        case 'KEEPALIVE':
+            break;
+        case 'JOINED':
+            this._players.joined(obj.player_name);
+            break;
+        case 'DEPARTED':
+            this._players.departed(obj.player_name, obj.disconnected);
+            break;
+        case 'PASSED':
+            this._passed(obj.player_name, obj.word);
+            break;
+        }
     };
 
     SketchTable.prototype.login = function login(to, player_name) {
@@ -136,16 +264,43 @@
     SketchTable.prototype.join = function join(table) {
         this._table = table;
 
+        this._chat.control('Joining table ' + table);
         this._send({verb: 'JOIN', table: table});
     };
 
     SketchTable.prototype.leave = function leave() {
         delete this._table;
         this._send({verb: 'LEAVE'});
+        this._players.clear();
     };
 
     SketchTable.prototype.pass = function pass() {
         this._send({verb: 'PASS'});
+    };
+
+    SketchTable.prototype._passed = function _passed(player_name, word) {
+        // Print the active player in the log
+        var possessive = player_name + "'s";
+        if (player_name.slice(-1) === 's') {
+            possessive = _player_name + "'";
+        }
+        this._chat.control('It is ' + possessive + ' turn');
+
+        if (this._player_name === player_name && typeof(word) !== 'undefined') {
+            // If we're the active player, enable drawing.
+            this._drawing.start();
+
+            this._draw_word.text(word);
+
+            this._guess_form.hide();
+            this._draw_controls.show();
+        } else {
+            // If we're not the active player, disable everything.
+            this._drawing.stop();
+
+            this._draw_controls.hide();
+            this._guess_form.show();
+        }
     };
 
     global.SketchTable = SketchTable;
@@ -154,4 +309,7 @@
 $(function() {
     'use strict';
 
+    var temp = new SketchTable('.sketch-row');
+    temp._drawing.start();
+    window.temp = temp;
 });

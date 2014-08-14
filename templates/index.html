@@ -34,16 +34,23 @@
 						</div><!-- /.canvas-image -->
 					</div><!-- /.canvas-mid-row -->
 					<div class="row canvas-bot-row">
-						<form class="form-inline">
+						<form class="form-inline guess-form">
 							<div class="form-group">
 								<label class="sr-only canvas-guess-label" for="canvas-guess-input">
 									Your Guess
 								</label><!-- /.canvas-guess-label -->
 								<input class="form-control" type="text" placeholder="Your Guess" id="canvas-guess-input">
-								<button type="submit" class="btn btn-primary">Guess</button>
+								<button type="button" name="guess" class="btn btn-primary canvas-guess">Guess</button>
 							</div><!-- /.form-group -->
-							<button class="btn btn-warning pull-right">Skip</button>
-						</form><!-- /.form-inline -->
+							<button type="button" name="skip" class="btn btn-warning pull-right canvas-skip">Skip</button>
+						</form><!-- /.guess-form -->
+						<form class="draw-controls form-inline">
+							<h5 class="pull-left">
+								<small>You are drawing:</small>
+								&#8220;<span class="canvas-word"></span>&#8221;
+							</h5>
+							<button type="button" name="pass" class="btn btn-warning pull-right canvas-pass">Pass</button>
+						</form><!-- /.draw-controls -->
 					</div><!-- /.canvas-bot-row -->
 				</div><!-- /.canvas-column -->
 				<div class="col-md-4 chat-column">
@@ -55,11 +62,11 @@
 
 					<!-- Content -->
 					<div class="tab-content chat-tabs-content">
-						<div class="tab-pane active" id="chat" class="chat">
-							Chat
+						<div class="tab-pane active chat-log" id="chat">
 						</div><!-- /#chat -->
-						<div class="tab-pane" id="players" class="player-list">
-							Players
+						<div class="tab-pane" id="players">
+							<ul class="player-list">
+							</ul><!-- /.player-list -->
 						</div><!-- /#players -->
 					</div><!-- /.chat-tabs-content -->
 				</div><!-- /.chat-column -->
