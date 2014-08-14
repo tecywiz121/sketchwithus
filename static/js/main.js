@@ -217,6 +217,11 @@
         this._socket.send(JSON.stringify(obj));
     };
 
+    SketchTable.prototype._onclose = function _onclose(evt) {
+        this._log('Disconnected');
+        this._chat.control('Disconnected');
+    };
+
     SketchTable.prototype._onopen = function _onopen(evt) {
         this._log('Connecting');
         this._players.clear();
@@ -277,6 +282,7 @@
 
         var that = this;
         ws.onopen = function(evt) { that._onopen(evt); };
+        ws.onclose = function(evt) { that._onclose(evt); };
         ws.onmessage = function(evt) { that._onmessage(evt); };
 
         this._socket = ws;
