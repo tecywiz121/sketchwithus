@@ -1,5 +1,6 @@
 .the-canvas {
 	width: 100%;
+	border: 1px solid #ddd;
 }
 
 .sketch-row {
@@ -38,4 +39,25 @@
 
 .chat-tabs {
 	margin-bottom: 0;
+}
+
+.chat-entry.control {
+	text-align: center;
+	font-style: italic;
+}
+
+.chat-entry.control::after {
+	content: '—';
+	display: block;
+	font-weight: normal;
+	color: #ddd;
+	padding:0;
+}
+
+.player-list > li + li {
+	border-top: 1px solid #ddd;
+}
+
+.player-list > li {
+	padding: 0.33em 0 0.33em 0;
 }

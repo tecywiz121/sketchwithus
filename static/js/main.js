@@ -86,6 +86,11 @@
     DrawingArea.prototype.start = function start() { this._enabled = true; };
     DrawingArea.prototype.stop = function stop() { this._enabled = false; };
 
+    DrawingArea.prototype.clear = function clear() {
+        this._ctx.clearRect(0, 0, this._canvas.width, this._canvas.height);
+        this._path = [];
+    };
+
     var SketchTableLog = function SketchTableLog(target) {
         this._el = $(target);
         this._scroll = this._el.parent('.tab-content');
@@ -292,6 +297,9 @@
             possessive = _player_name + "'";
         }
         this._chat.control('It is ' + possessive + ' turn');
+
+        // Clear the drawing area
+        this._drawing.clear();
 
         if (this._player_name === player_name && typeof(word) !== 'undefined') {
             // If we're the active player, enable drawing.
