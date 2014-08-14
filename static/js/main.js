@@ -43,7 +43,18 @@
             mouseX = evt.layerX;
             mouseY = evt.layerY;
         }
-        return [mouseX, mouseY];
+
+
+        var $canvas = $(this._canvas);
+        var realW = $canvas.width(),
+            realH = $canvas.height(),
+            attrW = $canvas.attr('width'),
+            attrH = $canvas.attr('height');
+
+        var xRatio = attrW / realW,
+            yRatio = attrH / realH;
+
+        return [mouseX * xRatio, mouseY * yRatio];
     };
 
     DrawingArea.prototype._onmousedown = function _onmousedown(evt) {
