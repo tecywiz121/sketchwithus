@@ -257,7 +257,7 @@ class Table(object):
             player.table.leave(player)          # Player has to leave old table
 
         msg = Message('JOINED')                 # Tell all the other players
-        msg.player = player.name                # that a new player has joined.
+        msg.player_name = player.name           # that a new player has joined.
         self.send(msg)
 
         player.table = self                     # Register the new player with
@@ -282,7 +282,7 @@ class Table(object):
             if other == player.name:
                 continue
             msg = Message('JOINED')
-            msg.name = other
+            msg.player_name = other
             msgs.append(msg)
 
         # Prepare passed message to set correct turn
@@ -360,7 +360,7 @@ class Table(object):
         redis.zrem(self.turns_key, player.name)
 
         msg = Message('DEPARTED')               # Let everyone know
-        msg.player = player.name                # which player is leaving,
+        msg.player_name = player.name           # which player is leaving,
         msg.disconnected = disconnected         # and if they disconnected.
         self.send(msg)
 
