@@ -282,7 +282,7 @@ class Table(object):
 
         if correct:
             score = redis.zincrby(self.players_key, player.name, 1)
-            self._pass_turn(artist_name, score)
+            self._pass_turn(artist_name, player.name, score)
 
     def draw(self, player, points):
         """
@@ -395,7 +395,7 @@ class Table(object):
         if rank == 0:
             self._pass_turn(player.name)
 
-    def _pass_turn(self, player_name, score=None):
+    def _pass_turn(self, player_name, guesser=None, score=None):
         # Get the next player
         next_player = redis.zrange(self.turns_key, 1, 1)
 
@@ -414,8 +414,19 @@ class Table(object):
         # Tell everyone who's turn it is
         msg = Message('PASSED', player_name=next_player)
         if score is not None:
+            msg.guesser = guesser
             msg.score = score
         self.send(msg)
+
+        # Ten points to win the game
+        if score >= 10:
+            # Send the won message
+            self.send(Message('WON', player_name=guesser))
+
+            # Clear all scores
+            players = redis.zrange(self.players_key, 0, -1)
+            scores = dict((x, 0) for x in players)
+            redis.zadd(self.players_key, **scores)
 
         # Move the old player to the end of the turn list
         redis.zadd(self.turns_key, player_name, time.time())

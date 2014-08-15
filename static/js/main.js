@@ -177,6 +177,10 @@
         }
     };
 
+    PlayerList.prototype.reset = function reset(player, reset) {
+        this._el.find('.score').text('');
+    };
+
     PlayerList.prototype.score = function score(player, score) {
         var $player = this._players[player];
         if (!$player) {
@@ -320,7 +324,7 @@
             this._players.departed(obj.player_name, obj.disconnected);
             break;
         case 'PASSED':
-            this._passed(obj.player_name, obj.word, obj.score);
+            this._passed(obj.player_name, obj.word, obj.guesser, obj.score);
             break;
         case 'SKIPPED':
             this._skipped(obj.player_name);
@@ -333,9 +337,16 @@
         case 'GUESSED':
             this._guessed(obj.player_name, obj.word, obj.correct);
             break;
+        case 'WON':
+            this._won(obj.player_name);
+            break;
         }
     };
 
+    SketchTable.prototype._won = function _won(player_name) {
+        this._chat.control(player_name + ' won the match!');
+        this._players.reset();
+    };
     SketchTable.prototype.login = function login(to, player_name) {
         this._url = to;
         this._player_name = player_name;
@@ -390,7 +401,8 @@
         this._chat.control(player_name + ' voted to skip');
     };
 
-    SketchTable.prototype._passed = function _passed(player_name, word, score) {
+    SketchTable.prototype._passed = function _passed(player_name, word,
+                                                        guesser, score) {
         // Print the active player in the log
         var possessive = player_name + "'s";
         if (player_name.slice(-1) === 's') {
@@ -399,7 +411,7 @@
         this._chat.control('It is ' + possessive + ' turn');
 
         if (typeof(score) !== 'undefined') {
-            this._players.score(player_name, score);
+            this._players.score(guesser, score);
         }
 
         // Clear the drawing area
