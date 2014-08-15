@@ -281,7 +281,8 @@ class Table(object):
                             correct=correct))
 
         if correct:
-            self._pass_turn(artist_name)
+            score = redis.zincrby(self.players_key, player.name, 1)
+            self._pass_turn(artist_name, score)
 
     def draw(self, player, points):
         """
@@ -313,15 +314,14 @@ class Table(object):
         self.players.append(player)             # this table.
 
         # Get a list of all the other players on this table
-        others = redis.smembers(self.players_key)
+        others = redis.zrange(self.players_key, 0, -1)
 
-        # Add new player to the player list
-        redis.sadd(self.players_key, player.name)
+        # Check if the player exists (race condition I guess)
+        score = redis.zscore(self.players_key, player.name)
+        if score is None:
+            # Add new player to the player list
+            redis.zadd(self.players_key, player.name, 0)
 
-        # Check if player in turn list
-        rank = redis.zrank(self.turns_key, player.name)
-
-        if rank is None:
             # Add player to the turn list if he/she wasn't already there
             redis.zadd(self.turns_key, player.name, time.time())
 
@@ -376,7 +376,7 @@ class Table(object):
         redis.sadd(self.skip_key, player.name)
 
         voted = redis.scard(self.skip_key)
-        total = redis.scard(self.players_key) - 1
+        total = redis.zcard(self.players_key) - 1
 
         self.send(Message('SKIPPED', player_name=player.name))
 
@@ -395,7 +395,7 @@ class Table(object):
         if rank == 0:
             self._pass_turn(player.name)
 
-    def _pass_turn(self, player_name):
+    def _pass_turn(self, player_name, score=None):
         # Get the next player
         next_player = redis.zrange(self.turns_key, 1, 1)
 
@@ -412,7 +412,10 @@ class Table(object):
         redis.delete(self.skip_key)
 
         # Tell everyone who's turn it is
-        self.send(Message('PASSED', player_name=next_player))
+        msg = Message('PASSED', player_name=next_player)
+        if score is not None:
+            msg.score = score
+        self.send(msg)
 
         # Move the old player to the end of the turn list
         redis.zadd(self.turns_key, player_name, time.time())
@@ -434,7 +437,7 @@ class Table(object):
         self.pass_turn(player)
 
         # Remove player from the player and turn lists
-        redis.srem(self.players_key, player.name)
+        redis.zrem(self.players_key, player.name)
         redis.zrem(self.turns_key, player.name)
 
         msg = Message('DEPARTED')               # Let everyone know

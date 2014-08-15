@@ -86,7 +86,7 @@
             /* Chrome */
             btns = evt.which;
         }
-        if (this._enabled && evt.which === 1 && this.onstroke) {
+        if (this._enabled && btns === 1 && this.onstroke) {
             this.onstroke(this._path);
             this._path = [this._path[this._path.length - 1]];
         }
@@ -169,11 +169,21 @@
         this._chat.control(player + ' has joined the table');
 
         if (!(player in this._players)) {
-            var $li = $('<li class="player">').text(player);
+            var $score = $('<span class="pull-right score">'),
+                $li = $('<li class="player">').text(player).append($score);
 
             this._players[player] = $li;
             this._el.append($li);
         }
+    };
+
+    PlayerList.prototype.score = function score(player, score) {
+        var $player = this._players[player];
+        if (!$player) {
+            this.joined(player);
+            $player = this._players[player];
+        }
+        $player.find('.score').text(score);
     };
 
     PlayerList.prototype.departed = function departed(player, disconnected) {
@@ -310,7 +320,7 @@
             this._players.departed(obj.player_name, obj.disconnected);
             break;
         case 'PASSED':
-            this._passed(obj.player_name, obj.word);
+            this._passed(obj.player_name, obj.word, obj.score);
             break;
         case 'SKIPPED':
             this._skipped(obj.player_name);
@@ -380,13 +390,17 @@
         this._chat.control(player_name + ' voted to skip');
     };
 
-    SketchTable.prototype._passed = function _passed(player_name, word) {
+    SketchTable.prototype._passed = function _passed(player_name, word, score) {
         // Print the active player in the log
         var possessive = player_name + "'s";
         if (player_name.slice(-1) === 's') {
             possessive = _player_name + "'";
         }
         this._chat.control('It is ' + possessive + ' turn');
+
+        if (typeof(score) !== 'undefined') {
+            this._players.score(player_name, score);
+        }
 
         // Clear the drawing area
         this._drawing.clear();
