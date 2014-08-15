@@ -367,6 +367,11 @@
         if (this._socket.readyState === WebSocket.OPEN) {
             this._chat.control('Joining table ' + table);
             this._send({verb: 'JOIN', table: table});
+
+            if (typeof(history.replaceState) !== 'undefined') {
+                history.replaceState(null, 'SketchWith.Us: ' + table,
+                                        '/' + table);
+            }
         }
     };
 

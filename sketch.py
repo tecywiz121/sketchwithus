@@ -514,9 +514,10 @@ class SketchBackend(object):
 sketches = SketchBackend()
 sketches.start()
 
-@app.route('/')
-def index():
-    return render_template('index.html')
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def index(path):
+    return render_template('index.html', path=path)
 
 @sockets.route('/game')
 def game(ws):
