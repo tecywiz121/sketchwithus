@@ -411,7 +411,7 @@
         // Print the active player in the log
         var possessive = player_name + "'s";
         if (player_name.slice(-1) === 's') {
-            possessive = _player_name + "'";
+            possessive = player_name + "'";
         }
         this._chat.control('It is ' + possessive + ' turn');
 
