@@ -1,7 +1,4 @@
-.the-canvas {
-	width: 100%;
-	border: 1px solid #ddd;
-}
+@media (min-width: 768px) {
 
 .sketch-row {
 	display: table;
@@ -11,6 +8,13 @@
 	float: none;
 	display: table-cell;
 	vertical-align: top;
+}
+
+}
+
+.the-canvas {
+	width: 100%;
+	border: 1px solid #ddd;
 }
 
 .draw-controls {
@@ -32,6 +36,7 @@
 	right: 15px;
 	top: 41px; /* estimated height of .chat-tabs */
 	bottom: 0;
+	min-height: 200px;
 
 	overflow-y: auto;
 	overflow-x: hidden;
