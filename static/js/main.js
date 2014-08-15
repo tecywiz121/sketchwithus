@@ -78,7 +78,7 @@
     };
 
     DrawingArea.prototype._onmouseleave = function _onmouseleave(evt) {
-        if (this._enabled && evt.buttons === 1 && this.onstroke) {
+        if (this._enabled && evt.which === 1 && this.onstroke) {
             this.onstroke(this._path);
             this._path = [this._path[this._path.length - 1]];
         }
@@ -86,7 +86,7 @@
 
     DrawingArea.prototype._onmousemove = function _onmousemove(evt) {
         if (!this._enabled) { return; }
-        if (evt.buttons !== 1) {
+        if (evt.which !== 1) {
             return;
         }
 
