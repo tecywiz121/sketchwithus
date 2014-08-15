@@ -78,6 +78,14 @@
     };
 
     DrawingArea.prototype._onmouseleave = function _onmouseleave(evt) {
+        var btns;
+        if ('buttons' in evt) {
+            /* FF, IE */
+            btns = evt.buttons;
+        } else {
+            /* Chrome */
+            btns = evt.which;
+        }
         if (this._enabled && evt.which === 1 && this.onstroke) {
             this.onstroke(this._path);
             this._path = [this._path[this._path.length - 1]];
@@ -86,7 +94,11 @@
 
     DrawingArea.prototype._onmousemove = function _onmousemove(evt) {
         if (!this._enabled) { return; }
-        if (evt.which !== 1) {
+        if ('buttons' in evt && evt.buttons !== 1) {
+            /* FF, IE */
+            return;
+        } else if (evt.which !== 1) {
+            /* Chrome */
             return;
         }
 
