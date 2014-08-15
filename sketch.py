@@ -20,10 +20,10 @@ import redis
 import gevent
 import time
 import json
-import urlparse
 from flask import Flask, render_template
 from flask_sockets import Sockets
 from werkzeug.datastructures import MultiDict
+from models import db, Word
 from peewee import *
 
 REDIS_URL = os.environ['REDISCLOUD_URL']
@@ -46,26 +46,7 @@ sockets = Sockets(app)
 # Redis
 redis = redis.from_url(REDIS_URL)
 
-# Peewee
-urlparse.uses_netloc.append('postgres')
-db_url = urlparse.urlparse(os.environ['DATABASE_URL'])
-db = PostgresqlDatabase(db_url.path[1:],
-                        user=db_url.username,
-                        password=db_url.password,
-                        host=db_url.hostname,
-                        port=db_url.port)
-
 db.connect()
-
-class BaseModel(Model):
-    """The base class for all models"""
-    class Meta:
-        database = db
-
-class Word(BaseModel):
-    text = CharField(unique=True)
-    plays = IntegerField(index=True)
-    wins = IntegerField()
 
 def get_next_word(used=None):
     try:
@@ -83,6 +64,14 @@ def get_next_word(used=None):
         query.execute()
 
         return result
+    except:
+        db.rollback()
+        raise
+
+def word_won(word):
+    try:
+        query = Word.update(wins=Word.wins + 1).where(Word.text == word)
+        query.execute()
     except:
         db.rollback()
         raise
@@ -279,7 +268,7 @@ class Table(object):
             return
 
         word = redis.get(self.word_key)
-        correct = word == guess
+        correct = word.lower() == guess.lower()
 
         self.send(Message('GUESSED', player_name=player.name, word=guess,
                             correct=correct))
@@ -287,6 +276,7 @@ class Table(object):
         if correct:
             score = redis.zincrby(self.players_key, player.name, 1)
             self._pass_turn(artist_name, player.name, score)
+            word_won(word)
 
     def draw(self, player, points):
         """
