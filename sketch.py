@@ -68,20 +68,24 @@ class Word(BaseModel):
     wins = IntegerField()
 
 def get_next_word(used=None):
-    # Fetch a random word that hasn't been used much
-    subquery = Word.select(fn.Avg(Word.plays))
-    result = (Word.select()
-                .order_by(fn.Random())
-                .where(Word.plays <= subquery))
-    if used:
-        result = result.where((Word.text << used) == False)
-    result = result[0]
+    try:
+        # Fetch a random word that hasn't been used much
+        subquery = Word.select(fn.Avg(Word.plays))
+        result = (Word.select()
+                    .order_by(fn.Random())
+                    .where(Word.plays <= subquery))
+        if used:
+            result = result.where((Word.text << used) == False)
+        result = result[0]
 
-    # Update its play count
-    query = Word.update(plays=Word.plays + 1).where(Word.id == result.id)
-    query.execute()
+        # Update its play count
+        query = Word.update(plays=Word.plays + 1).where(Word.id == result.id)
+        query.execute()
 
-    return result
+        return result
+    except:
+        db.rollback()
+        raise
 
 app.logger.debug('Hello, World!')
 
