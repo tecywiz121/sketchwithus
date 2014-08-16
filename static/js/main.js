@@ -219,6 +219,7 @@
         this._btn_skip = this._guess_form.find('.canvas-skip');
         this._btn_pass = this._draw_controls.find('.canvas-pass');
         this._txt_guess = this._guess_form.find('.guess-input');
+        this._timer = this._root.find('.time-remaining');
         this._myTurn = false;
 
         /* Set up skip/pass buttons */
@@ -238,6 +239,16 @@
         /* Initialize the players list */
         this._players = new PlayerList(this._chat,
                                         this._root.find('.player-list'));
+
+        /* Start the timer updater */
+        setInterval(function() { that._update_timer(); }, 500);
+    };
+
+    SketchTable.prototype._update_timer = function _update_timer() {
+        var now = Date.now(),
+            diff = Math.floor((this._end_time - now) / 1000);
+
+        this._timer.text(diff + 's');
     };
 
     SketchTable.prototype._onstroke = function _onstroke(path) {
@@ -324,7 +335,8 @@
             this._players.departed(obj.player_name, obj.disconnected);
             break;
         case 'PASSED':
-            this._passed(obj.player_name, obj.word, obj.guesser, obj.score);
+            this._passed(obj.player_name, obj.word, obj.guesser, obj.score,
+                            obj.end_time);
             break;
         case 'SKIPPED':
             this._skipped(obj.player_name);
@@ -415,7 +427,8 @@
     };
 
     SketchTable.prototype._passed = function _passed(player_name, word,
-                                                        guesser, score) {
+                                                        guesser, score,
+                                                        end_time) {
         // Print the active player in the log
         var possessive = player_name + "'s";
         if (player_name.slice(-1) === 's') {
@@ -449,6 +462,8 @@
 
             this._myTurn = false;
         }
+
+        this._end_time = 1000 * parseFloat(end_time);
     };
 
     global.SketchTable = SketchTable;

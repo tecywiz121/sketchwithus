@@ -21,12 +21,6 @@
 		<div class="container">
 			<div class="row sketch-row">
 				<div class="col-xs-12 col-sm-7 col-md-8 canvas-column">
-					<div class="row canvas-top-row">
-						<div class="col-md-8 canvas-status">
-						</div><!-- /.canvas-status -->
-						<div class="col-md-4 canvas-timer">
-						</div><!-- /.canvas-timer -->
-					</div><!-- /.canvas-top-row -->
 					<div class="row canvas-mid-row">
 						<div class="canvas-image">
 							<canvas class="the-canvas" width="780" height="585">
@@ -43,6 +37,10 @@
 								<button type="button" name="guess" class="btn btn-primary canvas-guess">Guess</button>
 							</div><!-- /.form-group -->
 							<button type="button" name="skip" class="btn btn-warning pull-right canvas-skip">Skip</button>
+							<h5 class="pull-right time-holder">
+								<small>Time remaining:</small>
+								<span class="time-remaining"></span>
+							</h5>
 						</form><!-- /.guess-form -->
 						<form class="draw-controls form-inline">
 							<h5 class="pull-left">
@@ -50,6 +48,10 @@
 								&#8220;<span class="canvas-word"></span>&#8221;
 							</h5>
 							<button type="button" name="pass" class="btn btn-warning pull-right canvas-pass">Pass</button>
+							<h5 class="pull-right time-holder">
+								<small>Time remaining:</small>
+								<span class="time-remaining"></span>
+							</h5><!-- /.pull-right -->
 						</form><!-- /.draw-controls -->
 					</div><!-- /.canvas-bot-row -->
 				</div><!-- /.canvas-column -->
