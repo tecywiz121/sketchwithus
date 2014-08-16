@@ -248,7 +248,14 @@
         var now = Date.now(),
             diff = Math.floor((this._end_time - now) / 1000);
 
-        this._timer.text(diff + 's');
+        diff -= 10; /* 10 seconds of buffer time to hide lag */
+        if (diff < 0) { diff = 0; }
+
+        if (isNaN(diff)) {
+            this._timer.text('');
+        } else {
+            this._timer.text(diff + 's');
+        }
     };
 
     SketchTable.prototype._onstroke = function _onstroke(path) {
