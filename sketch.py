@@ -35,9 +35,7 @@ app.debug = 'DEBUG' in os.environ
 app.debug = True
 
 # Logging
-file_handler = logging.StreamHandler()
 app.logger.setLevel(logging.DEBUG)
-app.logger.addHandler(file_handler)
 
 
 # Flask Sockets
