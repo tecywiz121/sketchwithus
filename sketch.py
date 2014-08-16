@@ -250,6 +250,8 @@ class Table(object):
         self.turns_key = '.'.join(['table', self.name, 'turns'])
         self.word_key = '.'.join(['table', self.name, 'word'])
         self.skip_key = '.'.join(['table', self.name, 'skip'])
+        self.end_key = '.'.join(['table', self.name, 'end'])
+        self.alive = True
 
         # Subscribe to table updates
         kwargs = {self.topic: self._handle_message}
@@ -257,6 +259,9 @@ class Table(object):
 
         # Set the initial starting word
         redis.setnx(self.word_key, get_next_word().text)
+
+        # Start the game end loop
+        gevent.spawn(self._end_game)
 
     def guess(self, player, guess):
         """
@@ -267,16 +272,7 @@ class Table(object):
             app.logger.error('artist submitted a guess')
             return
 
-        word = redis.get(self.word_key)
-        correct = word.lower() == guess.lower()
-
-        self.send(Message('GUESSED', player_name=player.name, word=guess,
-                            correct=correct))
-
-        if correct:
-            score = redis.zincrby(self.players_key, player.name, 1)
-            self._pass_turn(artist_name, player.name, score)
-            word_won(word)
+        self.send(Message('GUESSED', player_name=player.name, word=guess))
 
     def draw(self, player, points):
         """
@@ -291,7 +287,15 @@ class Table(object):
         self.send(Message('DRAWN', points=points))
 
     def _get_artist(self):
-        return redis.zrange(self.turns_key, 0, 0)[0]
+        try:
+            return redis.zrange(self.turns_key, 0, 0)[0]
+        except IndexError:
+            return None
+
+    def _has_artist(self, artist=None):
+        if artist is None:
+            artist = self._get_artist()
+        return any(x.name == artist for x in self.players)
 
     def join(self, player):
         if player.table == self:
@@ -333,6 +337,15 @@ class Table(object):
         msg = Message('PASSED', player_name=current)
         if player.name == current:
             msg.word = redis.get(self.word_key)
+
+            end_time = time.time() + 120
+            if not redis.setnx(self.end_key, end_time):
+                # Clock's already started!
+                end_time = redis.get(self.end_key)
+        else:
+            end_time = redis.get(self.end_key)
+            assert(end_time is not None)
+        msg.end_time = end_time
         msgs.append(msg)
 
         # Send all the prepared messages
@@ -369,13 +382,7 @@ class Table(object):
         # Add the player to the list of voted players
         redis.sadd(self.skip_key, player.name)
 
-        voted = redis.scard(self.skip_key)
-        total = redis.zcard(self.players_key) - 1
-
         self.send(Message('SKIPPED', player_name=player.name))
-
-        if voted * 2 > total:
-            self._pass_turn(artist)
 
     def pass_turn(self, player):
         """
@@ -407,6 +414,8 @@ class Table(object):
 
         # Tell everyone who's turn it is
         msg = Message('PASSED', player_name=next_player)
+        msg.end_time = time.time() + 120
+        redis.set(self.end_key, msg.end_time)
         if score is not None:
             msg.guesser = guesser
             msg.score = score
@@ -438,33 +447,90 @@ class Table(object):
         """
         self.players.remove(player)
 
-        # If it is this player's turn, pass it automatically
-        self.pass_turn(player)
-
-        # Remove player from the player and turn lists
-        redis.zrem(self.players_key, player.name)
-        redis.zrem(self.turns_key, player.name)
-
         msg = Message('DEPARTED')               # Let everyone know
         msg.player_name = player.name           # which player is leaving,
         msg.disconnected = disconnected         # and if they disconnected.
         self.send(msg)
 
+        # The only time DEPART causes a turn to shift is when the current
+        # artist leaves. The instance that receives the DEPART will always have
+        # the departing player. Therefore it is safe to do the _pass_turn call
+        # here.
+        artist = self._get_artist()
+        if player.name == artist:
+            self._pass_turn(player.name)
+
+        # Remove player from the player and turn lists
+        redis.zrem(self.players_key, player.name)
+        redis.zrem(self.turns_key, player.name)
+
         if not self.players:
             self.pubsub.unsubscribe(self.topic) # No players? Unsubscribe from
                                                 # further updates.
             self.manager.remove_table(self.name)
+            self.alive = False
+
+    def _end_game(self):
+        while self.alive:
+            try:
+                end_time = float(redis.get(self.end_key))
+            except TypeError:
+                gevent.sleep(1)
+                continue
+
+            now = time.time()
+            if end_time < now:
+                self._terminate_game()
+            else:
+                gevent.sleep((end_time-now)/2)
+
+    def _terminate_game(self):
+        if self._has_artist():
+            redis.delete(self.end_key)
+            self.send(Message('ENDED', player_name=self._get_artist()))
 
     def _handle_message(self, msg):
         """
         Forwards messages from Redis to the players directly connected to this
         instance.
         """
-        app.logger.debug(msg)
+        app.logger.debug('RECEIVED - ' + str(msg))
         if msg['type'] != 'message' or msg['channel'] != self.topic:
             return                              # Ignore messages we don't need
 
         msg = json_loads(msg['data'])
+
+        # If we have the artist, we're responsible for adjusting game state
+        must_pass = False
+        artist = self._get_artist()
+        if self._has_artist(artist):
+            if msg.verb == 'GUESSED':
+                if msg.player_name == artist:
+                    app.logger.log('artist submitted a guess')
+                else:
+                    word = redis.get(self.word_key)
+                    # TODO: Correct is only set for clients connected to this instance.
+                    msg.correct = word.lower() == msg.word.lower()
+                    if msg.correct:
+                        score = redis.zincrby(self.players_key, msg.player_name, 1)
+                        word_won(word)
+                        must_pass = True
+            elif msg.verb == 'SKIPPED':
+                if msg.player_name == artist:
+                    app.logger.log('artist voted to skip')
+                else:
+                    voted = redis.scard(self.skip_key)
+                    total = redis.zcard(self.players_key) - 1
+
+                    if voted * 2 > total:
+                        must_pass = True
+            elif msg.verb == 'ENDED':
+                if msg.player_name == artist:
+                    must_pass = True
+                # TODO: Player name will be sent on other instances
+                del msg.player_name
+
+        # Repeat the message to all players
         for p in self.players:
             if msg.verb == 'PASSED' and msg.player_name == p.name:
                 # Add the word to the passed message for the correct player
@@ -474,6 +540,8 @@ class Table(object):
             else:
                 gevent.spawn(p.send, msg)
 
+        if must_pass:
+            self._pass_turn(artist)
 
 class SketchBackend(object):
     """

@@ -340,6 +340,9 @@
         case 'WON':
             this._won(obj.player_name);
             break;
+        case 'ENDED':
+            this._ended();
+            break;
         }
     };
 
@@ -347,6 +350,11 @@
         this._chat.control(player_name + ' won the match!');
         this._players.reset();
     };
+
+    SketchTable.prototype._ended = function _ended() {
+        this._chat.control('You took too long! No one wins this game.');
+    };
+
     SketchTable.prototype.login = function login(to, player_name) {
         this._url = to;
         this._player_name = player_name;
