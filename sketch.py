@@ -380,9 +380,8 @@ class Table(object):
             return
 
         # Add the player to the list of voted players
-        redis.sadd(self.skip_key, player.name)
-
-        self.send(Message('SKIPPED', player_name=player.name))
+        if redis.sadd(self.skip_key, player.name):
+            self.send(Message('SKIPPED', player_name=player.name))
 
     def pass_turn(self, player):
         """
