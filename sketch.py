@@ -37,7 +37,6 @@ app.debug = True
 # Logging
 app.logger.setLevel(logging.DEBUG)
 
-
 # Flask Sockets
 sockets = Sockets(app)
 
@@ -128,6 +127,7 @@ class Player(object):
         self.last_message = time.time()
         self.alive = True
         self.table = None
+        self.name = None
 
     def _keepalive(self):
         """
@@ -182,10 +182,10 @@ class Player(object):
         while self.alive:
             gevent.sleep()
 
-            app.logger.debug("Waiting for message")
+            self._debug('Waiting for message')
             try:
                 msg = self.socket.receive()
-                app.logger.debug("Got Message: " + str(msg))
+                self._debug('Got message: {0}', extra=[msg])
             except:
                 self.disconnect()
                 msg = None
@@ -193,6 +193,19 @@ class Player(object):
             if msg:
                 self.last_message = time.time()
                 self._handle_message(msg)
+
+    def _debug(self, *args, **kwargs):
+        return self._log(logging.DEBUG, *args, **kwargs)
+
+    def _error(self, *args, **kwargs):
+        return self._log(logging.ERROR, *args, **kwargs)
+
+    def _log(self, level, msg, extra=[]):
+        fmt = 'PLAYER ({}) - {}'
+        fmt = fmt.format(self.name, msg)
+        if extra:
+            fmt = fmt.format(*extra)
+        app.logger.log(level, fmt)
 
     def _handle_message(self, msg):
         msg = json_loads(msg)
@@ -202,39 +215,38 @@ class Player(object):
             try:
                 self.name = msg.player_name
             except AttributeError:
-                logging.error('connect command missing player_name')
+                self._error('connect command missing player_name')
         elif msg.verb == 'JOIN':
             try:
                 self.manager.find_table(msg.table).join(self)
             except AttributeError:
-                logging.error('join command missing table')
-                raise
+                self._error('join command missing table')
         elif msg.verb == 'LEAVE':
             if self.table is None:
-                logging.error('leave command with no table')
-                return
-            self.table.leave(self)
-            self.table = None
+                self._error('leave command with no table')
+            else:
+                self.table.leave(self)
+                self.table = None
         elif msg.verb == 'PASS':
             if self.table is None:
-                logging.error('pass command with no table')
-                return
-            self.table.pass_turn(self)
+                self._error('pass command with no table')
+            else:
+                self.table.pass_turn(self)
         elif msg.verb == 'SKIP':
             if self.table is None:
-                logging.error('skip command with no table')
-                return
-            self.table.skip_turn(self)
+                self._error('skip command with no table')
+            else:
+                self.table.skip_turn(self)
         elif msg.verb == 'DRAW':
             if self.table is None:
-                logging.error('draw command with no table')
-                return
-            self.table.draw(self, msg.points);
+                self._error('draw command with no table')
+            else:
+                self.table.draw(self, msg.points);
         elif msg.verb == 'GUESS':
             if self.table is None:
-                logging.error('guess command with no table')
-                return
-            self.table.guess(self, msg.word)
+                self._error('guess command with no table')
+            else:
+                self.table.guess(self, msg.word)
 
 class Table(object):
     """A group of players"""
@@ -261,13 +273,26 @@ class Table(object):
         # Start the game end loop
         gevent.spawn(self._end_game)
 
+    def _debug(self, *args, **kwargs):
+        return self._log(logging.DEBUG, *args, **kwargs)
+
+    def _error(self, *args, **kwargs):
+        return self._log(logging.ERROR, *args, **kwargs)
+
+    def _log(self, level, msg, extra=[]):
+        fmt = 'TABLE ({}) - {}'
+        fmt = fmt.format(self.name, msg)
+        if extra:
+            fmt = fmt.format(*extra)
+        app.logger.log(level, fmt)
+
     def guess(self, player, guess):
         """
         Guess a word.
         """
         artist_name = self._get_artist()
         if player.name == artist_name:
-            app.logger.error('artist submitted a guess')
+            self._error('artist submitted a guess')
             return
 
         self.send(Message('GUESSED', player_name=player.name, word=guess))
@@ -279,7 +304,7 @@ class Table(object):
         artist_name = self._get_artist()
 
         if player.name != artist_name:
-            app.logger.error('player drawing when not the artist')
+            self._error('player drawing when not the artist')
             return
 
         self.send(Message('DRAWN', points=points))
@@ -374,7 +399,7 @@ class Table(object):
         # Make sure the artist isn't skipping
         artist = self._get_artist()
         if artist == player.name:
-            app.logger.error('artist voted to skip')
+            self._error('artist voted to skip')
             return
 
         # Add the player to the list of voted players
@@ -435,7 +460,7 @@ class Table(object):
         """
         Sends a message to all players connected to this table.
         """
-        app.logger.debug("PUBLISH - " + self.topic + ": " + json_dumps(msg))
+        self._debug("PUBLISH - {}: {}", extra=[self.topic, json_dumps(msg)])
         redis.publish(self.topic, json_dumps(msg))
 
     def _depart(self, player, disconnected):
@@ -491,7 +516,7 @@ class Table(object):
         Forwards messages from Redis to the players directly connected to this
         instance.
         """
-        app.logger.debug('RECEIVED - ' + str(msg))
+        self._debug('RECEIVED - {}', extra=[str(msg)])
         if msg['type'] != 'message' or msg['channel'] != self.topic:
             return                              # Ignore messages we don't need
 
@@ -505,7 +530,7 @@ class Table(object):
         if self._has_artist(artist):
             if msg.verb == 'GUESSED':
                 if msg.player_name == artist:
-                    app.logger.log('artist submitted a guess')
+                    self._error('artist ({}) submitted a guess', extra=[artist])
                 else:
                     word = redis.get(self.word_key)
                     # TODO: Correct is only set for clients connected to this instance.
@@ -517,7 +542,7 @@ class Table(object):
                         must_pass = True
             elif msg.verb == 'SKIPPED':
                 if msg.player_name == artist:
-                    app.logger.log('artist voted to skip')
+                    self._error('artist ({}) voted to skip', extra=[artist])
                 else:
                     voted = redis.scard(self.skip_key)
                     total = redis.zcard(self.players_key) - 1
