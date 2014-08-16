@@ -503,6 +503,8 @@ class Table(object):
         # If we have the artist, we're responsible for adjusting game state
         must_pass = False
         artist = self._get_artist()
+        score = None
+        guesser = None
         if self._has_artist(artist):
             if msg.verb == 'GUESSED':
                 if msg.player_name == artist:
@@ -512,6 +514,7 @@ class Table(object):
                     # TODO: Correct is only set for clients connected to this instance.
                     msg.correct = word.lower() == msg.word.lower()
                     if msg.correct:
+                        guesser = msg.player_name
                         score = redis.zincrby(self.players_key, msg.player_name, 1)
                         word_won(word)
                         must_pass = True
@@ -541,7 +544,7 @@ class Table(object):
                 gevent.spawn(p.send, msg)
 
         if must_pass:
-            self._pass_turn(artist)
+            self._pass_turn(artist, guesser=guesser, score=score)
 
 class SketchBackend(object):
     """
