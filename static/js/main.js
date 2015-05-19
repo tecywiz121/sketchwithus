@@ -177,17 +177,17 @@
         }
     };
 
-    PlayerList.prototype.reset = function reset(player, reset) {
+    PlayerList.prototype.reset = function reset(player, r) {
         this._el.find('.score').text('');
     };
 
-    PlayerList.prototype.score = function score(player, score) {
+    PlayerList.prototype.score = function score(player, s) {
         var $player = this._players[player];
         if (!$player) {
             this.joined(player);
             $player = this._players[player];
         }
-        $player.find('.score').text(score);
+        $player.find('.score').text(s);
     };
 
     PlayerList.prototype.departed = function departed(player, disconnected) {
@@ -323,8 +323,9 @@
     };
 
     SketchTable.prototype._processMessage = function _processMessage(text) {
+        var obj;
         try {
-            var obj = JSON.parse(text);
+            obj = JSON.parse(text);
             this._log(obj);
         } catch (e) {
             this._log('Error while parsing JSON:', e);
