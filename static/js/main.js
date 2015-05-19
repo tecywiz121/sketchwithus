@@ -282,7 +282,7 @@
     };
 
     SketchTable.prototype._log = function _log() {
-        return console.log.apply(console, arguments);
+        //return console.log.apply(console, arguments);
     };
 
     SketchTable.prototype._send = function _send(obj) {
