@@ -63,14 +63,14 @@
         if (!this._enabled) { return; }
         var point = this._getMouseCoords(evt);
         this._path = [point];
-
-        // TODO: Start a timer to report partial strokes
+        this._setSendInterval();
     };
 
     DrawingArea.prototype._onmouseup = function _onmouseup(evt) {
         if (!this._enabled) { return; }
         var point = this._getMouseCoords(evt);
         this._drawPoint(point[0], point[1]);
+        this._clearSendInterval();
 
         if (this.onstroke) {
             this.onstroke(this._path);
@@ -86,6 +86,7 @@
             /* Chrome */
             btns = evt.which;
         }
+        this._clearSendInterval();
         if (this._enabled && btns === 1 && this.onstroke) {
             this.onstroke(this._path);
             this._path = [this._path[this._path.length - 1]];
@@ -96,11 +97,15 @@
         if (!this._enabled) { return; }
         if ('buttons' in evt && evt.buttons !== 1) {
             /* FF, IE */
+            this._clearSendInterval();
             return;
         } else if (evt.which !== 1) {
             /* Chrome */
+            this._clearSendInterval();
             return;
         }
+
+        this._setSendInterval();
 
         var point = this._getMouseCoords(evt);
         this._drawPoint(point[0], point[1]);
@@ -113,6 +118,31 @@
         this._ctx.lineTo(mouseX, mouseY);
         this._ctx.stroke();
         this._path.push([mouseX, mouseY]);
+    };
+
+    DrawingArea.prototype._setSendInterval = function _setSendInterval() {
+        var that = this;
+        if (typeof(this._interval) === 'undefined') {
+            this._interval = setInterval(function() { that._sendStrokes(that); }, 75);
+        }
+    };
+
+    DrawingArea.prototype._clearSendInterval = function _clearSendInterval() {
+        if (this._interval) {
+            clearInterval(this._interval);
+            this._interval = undefined;
+        }
+    };
+
+    DrawingArea.prototype._sendStrokes = function _sendStrokes(area) {
+        if (area._path.length < 2) {
+            return;
+        }
+
+        if (area.onstroke) {
+            area.onstroke(area._path);
+        }
+        area._path = [area._path[area._path.length-1]];
     };
 
     DrawingArea.prototype.start = function start() { this._enabled = true; };
