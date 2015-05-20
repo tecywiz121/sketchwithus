@@ -294,7 +294,7 @@
         var now = Date.now(),
             diff = Math.floor((this._end_time - now) / 1000);
 
-        diff -= 10; /* 10 seconds of buffer time to hide lag */
+        diff -= 3;  /* 3 seconds of buffer time to hide lag */
         if (diff < 0) { diff = 0; }
 
         if (isNaN(diff)) {
