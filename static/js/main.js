@@ -22,6 +22,7 @@
     var DrawingArea = function DrawingArea(canvas) {
         this._canvas = canvas;
         this._ctx = canvas.getContext('2d');
+        this._window = [];
 
         this._enabled = false;
 
@@ -56,7 +57,20 @@
         var xRatio = attrW / realW,
             yRatio = attrH / realH;
 
-        return [Math.floor(mouseX * xRatio), Math.floor(mouseY * yRatio)];
+        this._window.push([Math.floor(mouseX * xRatio), Math.floor(mouseY * yRatio)]);
+
+        var x = 0, y = 0;
+        var len = this._window.length;
+        for (var ii = 0; ii < len; ii++) {
+            x += this._window[ii][0];
+            y += this._window[ii][1];
+        }
+
+        if (len >= 5) {
+            this._window = this._window.slice(-5);
+        }
+
+        return [x/len, y/len];
     };
 
     DrawingArea.prototype._onmousedown = function _onmousedown(evt) {
@@ -71,6 +85,7 @@
         var point = this._getMouseCoords(evt);
         this._drawPoint(point[0], point[1]);
         this._clearSendInterval();
+        this._window = [];
 
         if (this.onstroke) {
             this.onstroke(this._path);
@@ -87,6 +102,7 @@
             btns = evt.which;
         }
         this._clearSendInterval();
+        this._window = [];
         if (this._enabled && btns === 1 && this.onstroke) {
             this.onstroke(this._path);
             this._path = [this._path[this._path.length - 1]];
