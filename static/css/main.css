@@ -23,6 +23,11 @@ body > footer {
     margin-right: 1em;
 }
 
+* {
+    -ms-scroll-chaining: none;
+    -ms-touch-action: none;
+}
+
 .the-canvas {
 	width: 100%;
 	border: 1px solid #ddd;

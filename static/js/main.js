@@ -36,14 +36,23 @@
             function(evt) { return that._onmousedown(evt); });
         canvas.addEventListener('mousemove',
             function(evt) { that._onmousemove(evt); });
-        document.addEventListener('touchstart',
-            function(evt) { return that._ontouchstart(evt); });
-        document.addEventListener('touchmove',
-            function(evt) { return that._ontouchmove(evt); });
-        document.addEventListener('touchend',
-            function(evt) { return that._ontouchend(evt); });
-        document.addEventListener('touchcancel',
-            function(evt) { return that._ontouchend(evt); });
+        if (window.PointerEvent) {
+            canvas.addEventListener('pointerdown',
+                function(evt) { return that._onpointerdown(evt); });
+            canvas.addEventListener('pointerup',
+                function(evt) { return that._onpointerup(evt); });
+            canvas.addEventListener('pointermove',
+                function(evt) { return that._onpointermove(evt); });
+        } else {
+            document.addEventListener('touchstart',
+                function(evt) { return that._ontouchstart(evt); });
+            document.addEventListener('touchmove',
+                function(evt) { return that._ontouchmove(evt); });
+            document.addEventListener('touchend',
+                function(evt) { return that._ontouchend(evt); });
+            document.addEventListener('touchcancel',
+                function(evt) { return that._ontouchend(evt); });
+        }
     };
 
     DrawingArea.prototype._getMouseCoords = function _getMouseCoords(evt) {
@@ -94,14 +103,16 @@
 
     DrawingArea.prototype._onmouseup = function _onmouseup(evt) {
         if (!this._enabled) { return; }
+        this._clearSendInterval();
         var point = this._getMouseCoords(evt);
         this._drawPoint(point[0], point[1]);
-        this._clearSendInterval();
         this._window = [];
 
         if (this.onstroke) {
             this.onstroke(this._path);
         }
+
+        this._path = [];
     };
 
     DrawingArea.prototype._onmouseleave = function _onmouseleave(evt) {
@@ -170,6 +181,39 @@
             this._onmouseup({pageX: evt.changedTouches[0].pageX,
                                 pageY: evt.changedTouches[0].pageY});
         }
+    };
+
+    DrawingArea.prototype._onpointerdown = function _onpointerdown(evt) {
+        if (evt.pointerType === 'mouse' || !evt.isPrimary) {
+            return; // Let mouse events pass through
+        }
+        evt.preventDefault();
+        this._canvas.setPointerCapture(evt.pointerId);
+        this._onmousedown({buttons: 1,
+                            which: 1,
+                            offsetX: evt.offsetX,
+                            offsetY: evt.offsetY});
+    };
+
+    DrawingArea.prototype._onpointerup = function _onpointerup(evt) {
+        if (evt.pointerType === 'mouse' || !evt.isPrimary) {
+            return; // Let mouse events pass through
+        }
+
+        evt.preventDefault();
+        this._canvas.releasePointerCapture(evt.pointerId);
+        this._onmouseup({offsetX: evt.offsetX, offsetY: evt.offsetY});
+    };
+
+    DrawingArea.prototype._onpointermove = function _onpointermove(evt) {
+        if (evt.pointerType === 'mouse' || !evt.isPrimary) {
+            return;
+        }
+        evt.preventDefault();
+        this._onmousemove({buttons: evt.buttons,
+                            which: evt.buttons,
+                            offsetX: evt.offsetX,
+                            offsetY: evt.offsetY});
     };
 
     DrawingArea.prototype._drawPoint = function _drawPoint(mouseX, mouseY) {
