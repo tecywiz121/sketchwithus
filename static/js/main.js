@@ -25,6 +25,7 @@
         this._window = [];
 
         this._enabled = false;
+        this._antiscroll = false;
 
         var that = this;
         canvas.addEventListener('mouseup',
@@ -35,20 +36,31 @@
             function(evt) { return that._onmousedown(evt); });
         canvas.addEventListener('mousemove',
             function(evt) { that._onmousemove(evt); });
+        document.addEventListener('touchstart',
+            function(evt) { return that._ontouchstart(evt); });
+        document.addEventListener('touchmove',
+            function(evt) { return that._ontouchmove(evt); });
+        document.addEventListener('touchend',
+            function(evt) { return that._ontouchend(evt); });
+        document.addEventListener('touchcancel',
+            function(evt) { return that._ontouchend(evt); });
     };
 
     DrawingArea.prototype._getMouseCoords = function _getMouseCoords(evt) {
         var mouseX, mouseY;
+        var $canvas = $(this._canvas);
         if (typeof(evt.offsetX) !== 'undefined') {
             mouseX = evt.offsetX;
             mouseY = evt.offsetY;
         } else if (typeof(evt.layerX) !== 'undefined') {
             mouseX = evt.layerX;
             mouseY = evt.layerY;
+        } else if (typeof(evt.pageX) !== 'undefined') {
+            var offset = $canvas.offset();
+            mouseX = evt.pageX - offset.left;
+            mouseY = evt.pageY - offset.top;
         }
 
-
-        var $canvas = $(this._canvas);
         var realW = $canvas.width(),
             realH = $canvas.height(),
             attrW = $canvas.attr('width'),
@@ -122,9 +134,42 @@
         }
 
         this._setSendInterval();
-
         var point = this._getMouseCoords(evt);
         this._drawPoint(point[0], point[1]);
+    };
+
+    DrawingArea.prototype._ontouchstart = function _ontouchstart(evt) {
+        if (this._canvas == evt.target) {
+            evt.preventDefault();
+            if (!this._antiscroll) {
+                this._antiscroll = true;
+                this._onmousedown({pageX: evt.targetTouches[0].pageX,
+                                    pageY: evt.targetTouches[0].pageY});
+            }
+        }
+    };
+
+    DrawingArea.prototype._ontouchmove = function _ontouchmove(evt) {
+        if (this._antiscroll) {
+            evt.preventDefault();
+            evt.targetTouches[0].buttons = 1;
+            var fakeEvent = {
+                buttons: 1,
+                which: 1,
+                pageX: evt.targetTouches[0].pageX,
+                pageY: evt.targetTouches[0].pageY
+            };
+            this._onmousemove(fakeEvent);
+        }
+    };
+
+    DrawingArea.prototype._ontouchend = function _ontouchend(evt) {
+        if (this._antiscroll) {
+            evt.preventDefault();
+            this._antiscroll = false;
+            this._onmouseup({pageX: evt.changedTouches[0].pageX,
+                                pageY: evt.changedTouches[0].pageY});
+        }
     };
 
     DrawingArea.prototype._drawPoint = function _drawPoint(mouseX, mouseY) {
@@ -526,6 +571,18 @@
 $(function() {
     'use strict';
 
+    function fullscreen(element) {
+        if (element.requestFullscreen) {
+            element.requestFullscreen();
+        } else if (element.mozRequestFullScreen) {
+            element.mozRequestFullScreen();
+        } else if (element.webkitRequestFullscreen) {
+            element.webkitRequestFullscreen();
+        } else if (element.msRequestFullscreen) {
+            element.msRequestFullscreen();
+        }
+    }
+
     var $modal = $('#login-modal'),
         $btn = $('#login-button'),
         $name = $('#login-form-name'),
@@ -568,6 +625,11 @@ $(function() {
         }
 
         new_uri += '://' + loc.host + '/game';
+
+        /* Fullscreen if on a tiny screen */
+        if (screen.width < 760 || screen.height < 760) {
+            fullscreen(document.documentElement);
+        }
 
         /* Perform the login and join */
         game.login(new_uri, name);
